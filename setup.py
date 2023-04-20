@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 
 
 setup(
-    name='wwlgpr',
-    version = "0.1.3",
-    packages=find_packages()
+    name="wwlgpr",
+    version="0.1.3",
+    packages=find_packages(),
 )
