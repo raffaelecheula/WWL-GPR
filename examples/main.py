@@ -3,13 +3,14 @@ import argparse
 import pickle
 import ray
 import numpy as np
+import wwlgpr
+import os
+import sys
+import time
 from skopt.space import Real, Categorical, Integer
 from wwlgpr.Utility import ClassifySpecies, writetofile, writetofolder
 from wwlgpr.WWL_GPR import BayOptCv
-import wwlgpr
-import os, sys
 from sklearn.model_selection import KFold, LeaveOneOut, StratifiedKFold
-import time
 
 
 def load_base_path():

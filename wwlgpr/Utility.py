@@ -1,10 +1,10 @@
 import numpy as np
 import ray
 import ot
-import numpy as np
-from sklearn.impute import SimpleImputer
 import wwlgpr
-import os, sys
+import os
+import sys
+from sklearn.impute import SimpleImputer
 
 
 #! cut graph fragment
@@ -27,7 +27,7 @@ def multiprocessing_WD(graph_pair_indexs, label_sequences, node_weights):
     return return_list
 
 
-def cal_node_weights(graph, atoms, cutoff, inner_cutoff, inner_weight, outer_weight):
+def cal_node_weights(graph, atoms, cutoff, inner_cutoff, inner_weight, outer_weight, all_adsorbate=False):
     bonding_indexs, ads_bond_indexs = ActiveSiteIndex(graph, atoms)
     total_bonding_index = list(set(bonding_indexs)) + ads_bond_indexs
     assert inner_cutoff <= cutoff
@@ -47,8 +47,19 @@ def cal_node_weights(graph, atoms, cutoff, inner_cutoff, inner_weight, outer_wei
     weights_list[
         np.where((min_shortest_path > inner_cutoff) & (min_shortest_path <= cutoff))
     ] = outer_weight
+    if all_adsorbate is True:
+        weights_list[
+            [IsAdsAtom(atoms, index) for index in range(len(atoms))]
+        ] = inner_weight
     normal_weights_list = weights_list / np.sum(weights_list)
     return normal_weights_list.reshape(-1, 1)
+
+
+def IsAdsAtom(atoms, index):
+    if 'ads_indices' in atoms.info:
+        return index in atoms.info['ads_indices']
+    else:
+        return atoms[index].number < 18
 
 
 def ActiveSiteIndex(graph, atoms):
@@ -56,23 +67,22 @@ def ActiveSiteIndex(graph, atoms):
     metal_bond_index = []
     ensemble_bond_index = []
     for node_i in graph.vs.indices:
-        if atoms[node_i].number < 18:
+        if IsAdsAtom(atoms, node_i):
             for edge_i in graph.es[graph.incident(node_i)]:
-                if atoms[edge_i.source].number > 18 and edge_i.source != node_i:
+                if not IsAdsAtom(atoms, edge_i.source) and edge_i.source != node_i:
                     metal_bond_index.append(edge_i.source)
                     ads_bond_index.append(node_i)
-                if atoms[edge_i.target].number > 18 and edge_i.target != node_i:
+                if not IsAdsAtom(atoms, edge_i.target) and edge_i.target != node_i:
                     metal_bond_index.append(edge_i.target)
                     ads_bond_index.append(node_i)
     ads_unique_indexs = list(set(ads_bond_index))
     for atom_id in ads_unique_indexs:
         neighbor_index = graph.neighbors(atom_id)
         for neighbor_i in neighbor_index:
-            if atoms[neighbor_i].number > 18:
+            if not IsAdsAtom(atoms, neighbor_i):
                 ensemble_bond_index.append(neighbor_i)
     assert len(ensemble_bond_index) > 0, "at least ones bonding atom"
     return ensemble_bond_index, ads_unique_indexs
-
 
 def ConcAttributes(node_attributes):
     conc_attributes = np.asarray(
@@ -152,16 +162,37 @@ def SplitTrainTest(filenames, species):
     return ads_index_list
 
 
-def ClassifySpecies(filenames):
+def ClassifySpecies(filenames, db_atoms):
+    
+    use_filenames = False
     adsorbate_list = []
-    for filename in filenames:
-        adsorbate = filename.split("_")[0]
+    for atoms in db_atoms:
+        if 'structure' not in atoms.info:
+            use_filenames = True
+            break
+        adsorbate = atoms.info['structure']
         if adsorbate not in adsorbate_list:
             adsorbate_list.append(adsorbate)
     classify_list = []
-    for filename in filenames:
-        key = filename.split("_")[0]
-        classify_list.append(np.argwhere(np.array(adsorbate_list) == key)[0][0])
+    for atoms in db_atoms:
+        key = atoms.info['structure']
+        classify_list.append(
+            np.argwhere(np.array(adsorbate_list) == key)[0][0]
+        )
+    
+    if use_filenames is True:
+        adsorbate_list = []
+        for filename in filenames:
+            adsorbate = filename.split("_")[0]
+            if adsorbate not in adsorbate_list:
+                adsorbate_list.append(adsorbate)
+        classify_list = []
+        for filename in filenames:
+            key = filename.split("_")[0]
+            classify_list.append(
+                np.argwhere(np.array(adsorbate_list) == key)[0][0]
+            )
+    
     return classify_list
 
 

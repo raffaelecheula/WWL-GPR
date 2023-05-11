@@ -1,23 +1,29 @@
+import numpy as np
+import ray
+import time
+import igraph as ig
+import matplotlib.pyplot as plt
 from numpy.core.numeric import outer
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import KFold, LeaveOneOut, StratifiedKFold
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from skopt import gp_minimize
 from functools import partial
-import numpy as np
-import ray
 from sklearn.metrics.pairwise import linear_kernel, rbf_kernel
-import numpy as np
 from sklearn.base import TransformerMixin
-import igraph as ig
 from collections import defaultdict
 from typing import List
-import matplotlib.pyplot as plt
 from skopt.plots import plot_convergence, plot_evaluations, plot_objective
-import time
 from scipy.linalg import cholesky, cho_solve, solve_triangular
 from sklearn import preprocessing
-from .Utility import *
+from .Utility import (
+    multiprocessing_WD,
+    cal_node_weights,
+    ConcAttributes,
+    CumsumAttributes,
+    fill_nan,
+    DropFeatures,
+)
 
 
 class GraphBase:
@@ -42,7 +48,7 @@ class GraphBase:
             y               ([type])          : Target properties
             drop_list       ([type], optional): Features to drop. Defaults to None.
             num_iter        (int, optional)   : Number of WL iterations. Defaults to 1.
-            pre_data_type       (str, optional)   : Data preprocessing. Defaults to "Standardize".
+            pre_data_type   (str, optional)   : Data preprocessing. Defaults to "Standardize".
             filenames       ([type], optional): Name of structures. Defaults to None.
             num_cpus        (int, optional)   : Number of cpus. Defaults to 1.
         """
@@ -87,7 +93,7 @@ class GraphBase:
         node_weights = ray.put(res_node_weight)  # node weights
         M = np.zeros((n, n))
         triu = np.triu_indices(n)
-        graph_pair_index = np.asarray([[i, j] for i in range(n) for j in range(n - i)])
+        graph_pair_index = np.asarray([[i, j] for i in range(n) for j in range(n-i)])
         splited_graph = np.array_split(graph_pair_index, GraphBase.num_cpus)
         result_ids = [
             multiprocessing_WD.remote(
@@ -276,14 +282,15 @@ class BayOptCv(GraphBase):
             + [0] * len(test_target),
         )
         conc_kernel_matrix = conc_kernel_matrix + total_diag
-        train_matrix = conc_kernel_matrix[: len(self.y), : len(self.y)] + 1e-8 * np.eye(
+        train_matrix = conc_kernel_matrix[:len(self.y), :len(self.y)] + 1e-8 * np.eye(
             len(self.y)
         )
-        test_matrix = conc_kernel_matrix[len(self.y) :, : len(self.y)]
-        Kfy = conc_kernel_matrix[: len(self.y), len(self.y) :]
-        Kff_inv = np.linalg.inv(train_matrix + 1e-8 * np.eye(len(self.y)))
+        test_matrix = conc_kernel_matrix[len(self.y):, :len(self.y)]
+        Kfy = conc_kernel_matrix[:len(self.y), len(self.y):]
+        Kff_inv = np.linalg.inv(train_matrix + 1e-8*np.eye(len(self.y)))
         mu = Kfy.T.dot(Kff_inv).dot(self.y)
         test_RMSE = mean_squared_error(mu, test_target, squared=False)
+        
         return test_RMSE, mu
 
     def _LossFunc(self, hyperpars, name_hypers, fix_hypers, preprocess_node_attributes):
@@ -461,16 +468,29 @@ class ContinuousWeisfeilerLehman(TransformerMixin):
         """
         edge_list = graph_i.get_edgelist()
         weights = np.zeros((len(db_atom_i), len(db_atom_i)))
-        for edge_i in edge_list:
-            node_numbers = db_atom_i.numbers[np.array(edge_i)]
-            if sum(node_numbers > 18) == 2:
-                weights[edge_i] = gpr_hypers_dict["edge_s_s"]
-            elif sum(node_numbers > 18) == 1:
-                weights[edge_i] = gpr_hypers_dict["edge_s_a"]
-            elif sum(node_numbers > 18) == 0:
-                weights[edge_i] = gpr_hypers_dict["edge_a_a"]
-            else:
-                raise TypeError("Unknown type of edge")
+        if 'ads_indices' in db_atom_i.info:
+            ads_indices = db_atom_i.info['ads_indices']
+            for edge_i in edge_list:
+                matches = [ii for ii in edge_i if ii in ads_indices]
+                if len(matches) == 2:
+                    weights[edge_i] = gpr_hypers_dict["edge_s_s"]
+                elif len(matches) == 1:
+                    weights[edge_i] = gpr_hypers_dict["edge_s_a"]
+                elif len(matches) == 0:
+                    weights[edge_i] = gpr_hypers_dict["edge_a_a"]
+                else:
+                    raise TypeError("Unknown type of edge")
+        else:
+            for edge_i in edge_list:
+                node_numbers = db_atom_i.numbers[np.array(edge_i)]
+                if sum(node_numbers > 18) == 2:
+                    weights[edge_i] = gpr_hypers_dict["edge_s_s"]
+                elif sum(node_numbers > 18) == 1:
+                    weights[edge_i] = gpr_hypers_dict["edge_s_a"]
+                elif sum(node_numbers > 18) == 0:
+                    weights[edge_i] = gpr_hypers_dict["edge_a_a"]
+                else:
+                    raise TypeError("Unknown type of edge")
         weights_sum = weights + weights.T
         degree = np.sum(weights_sum, axis=0).reshape(-1, 1)
         edge_weights_mat = np.divide(weights_sum, degree, where=degree != 0)

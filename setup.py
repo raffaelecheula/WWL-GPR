@@ -9,6 +9,6 @@ from setuptools import find_packages, setup
 
 setup(
     name="wwlgpr",
-    version="0.1.3",
+    version="0.1.4",
     packages=find_packages(),
 )
