@@ -64,7 +64,6 @@ def SCV5(ml_dict, opt_dimensions, default_para, fix_hypers, output_name):
     test_RMSEs = []
     f_times = 1
     skf = StratifiedKFold(n_splits=5, random_state=25, shuffle=True)
-    writetofolder(output_name)
     
     for train_index, vali_index in skf.split(
         list_ads_energies, 
@@ -115,11 +114,15 @@ def SCV5(ml_dict, opt_dimensions, default_para, fix_hypers, output_name):
         )
         print(f"{f_times} fold RMSE: ", test_RMSE)
         test_RMSEs.append(test_RMSE)
-        f_times += 1
+        
+        if f_times == 1:
+            writetofolder(output_name)
         
         writetofile(
             output_name, test_file_names, test_list_ads_energies, test_pre,
         )
+        
+        f_times += 1
     
     print("Cross validation RMSE: ", np.mean(test_RMSEs))
 
@@ -147,7 +150,6 @@ def SCV5_FHP(ml_dict, fix_hypers, output_name):
     test_RMSEs = []
     f_times = 1
     skf = StratifiedKFold(n_splits=5, random_state=25, shuffle=True)
-    writetofolder(output_name)
     
     for train_index, vali_index in skf.split(
         list_ads_energies,
@@ -187,11 +189,15 @@ def SCV5_FHP(ml_dict, fix_hypers, output_name):
         )
         print(f"{f_times} fold RMSE: ", test_RMSE)
         test_RMSEs.append(test_RMSE)
-        f_times += 1
+        
+        if f_times == 1:
+            writetofolder(output_name)
         
         writetofile(
             output_name, test_file_names, test_list_ads_energies, test_pre,
         )
+        
+        f_times += 1
     
     print("Cross validation RMSE: ", np.mean(test_RMSEs))
 
@@ -301,7 +307,7 @@ if __name__ == "__main__":
         time.strftime("%m%d-%H%M", time.localtime())
     )
 
-    output = args.output if args.output else f'/results/{job_name}'
+    output = args.output if args.output else job_name
     output_name = f"{base_path}/results/{output}.txt"
 
     if args.task == "CV5":
