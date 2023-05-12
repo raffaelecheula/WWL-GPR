@@ -13,13 +13,10 @@
 #SBATCH --gpus-per-task={{NUM_GPUS_PER_NODE}}
 #SBATCH --cpus-per-task={{NUM_CPUS_PER_NODE}}
 #SBATCH --time={{MAX_TIME}}
-#SBATCH --mem=20G
-#SBATCH --mail-type=END
+#SBATCH --mem-per-cpu=6G
 
 ### COSTUM setting
 # Load modules or your own conda environment here
-# module load pytorch/v1.4.0-gpu
-# conda activate {{CONDA_ENV}}
 {{LOAD_ENV}}
 
 # This script is a modification to the implementation suggest by gregSchwartz18 here:
@@ -30,7 +27,7 @@ nodes=$(scontrol show hostnames $SLURM_JOB_NODELIST) # Getting the node names
 nodes_array=($nodes)
 
 node_1=${nodes_array[0]}
-ip=$(srun --nodes=1 --ntasks=1 -w $node_1 hostname --ip-address) # making redis-address
+ip=$(srun --nodes=1 --ntasks=1 -w $node_1 hostname --ip-address) # Making redis-address
 
 if [[ $ip == *" "* ]]; then
   IFS=' ' read -ra ADDR <<<"$ip"
@@ -53,7 +50,7 @@ srun --nodes=1 --ntasks=1 -w $node_1 \
   ray start --head --node-ip-address=$ip --port=6379 --redis-password=$redis_password --block &
 sleep 30
 
-worker_num=$(($SLURM_JOB_NUM_NODES - 1)) #number of nodes other than the head node
+worker_num=$(($SLURM_JOB_NUM_NODES - 1)) # Number of nodes other than the head node
 for ((i = 1; i <= $worker_num; i++)); do
   node_i=${nodes_array[$i]}
   echo "STARTING WORKER $i at $node_i"
@@ -61,7 +58,5 @@ for ((i = 1; i <= $worker_num; i++)); do
   sleep 5
 done
 
-##############################################################################################
-
-#### call your code below
+# call your code below
 {{COMMAND_PLACEHOLDER}} {{COMMAND_SUFFIX}}

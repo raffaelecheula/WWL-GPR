@@ -162,24 +162,27 @@ def SplitTrainTest(filenames, species):
     return ads_index_list
 
 
-def ClassifySpecies(filenames, db_atoms):
+def ClassifySpecies(filenames, db_atoms=None):
     
-    use_filenames = False
-    adsorbate_list = []
-    for atoms in db_atoms:
-        if 'structure' not in atoms.info:
-            use_filenames = True
-            break
-        adsorbate = atoms.info['structure']
-        if adsorbate not in adsorbate_list:
-            adsorbate_list.append(adsorbate)
-    classify_list = []
-    for atoms in db_atoms:
-        key = atoms.info['structure']
-        classify_list.append(
-            np.argwhere(np.array(adsorbate_list) == key)[0][0]
-        )
-    
+    if db_atoms is None:
+        use_filenames = True
+    else:
+        use_filenames = False
+        adsorbate_list = []
+        for atoms in db_atoms:
+            if 'structure' not in atoms.info:
+                use_filenames = True
+                break
+            adsorbate = atoms.info['structure']
+            if adsorbate not in adsorbate_list:
+                adsorbate_list.append(adsorbate)
+        classify_list = []
+        for atoms in db_atoms:
+            key = atoms.info['structure']
+            classify_list.append(
+                np.argwhere(np.array(adsorbate_list) == key)[0][0]
+            )
+        
     if use_filenames is True:
         adsorbate_list = []
         for filename in filenames:
