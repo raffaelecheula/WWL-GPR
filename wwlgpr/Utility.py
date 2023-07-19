@@ -27,7 +27,7 @@ def multiprocessing_WD(graph_pair_indexs, label_sequences, node_weights):
     return return_list
 
 
-def cal_node_weights(graph, atoms, cutoff, inner_cutoff, inner_weight, outer_weight, all_adsorbate=False):
+def cal_node_weights(graph, atoms, cutoff, inner_cutoff, inner_weight, outer_weight, all_adsorbate=True):
     bonding_indexs, ads_bond_indexs = ActiveSiteIndex(graph, atoms)
     total_bonding_index = list(set(bonding_indexs)) + ads_bond_indexs
     assert inner_cutoff <= cutoff
@@ -168,32 +168,39 @@ def ClassifySpecies(filenames, db_atoms=None):
         use_filenames = True
     else:
         use_filenames = False
-        adsorbate_list = []
+        structure_list = []
         for atoms in db_atoms:
-            if 'structure' not in atoms.info:
+            if 'structure' in atoms.info:
+                structure = atoms.info['structure']
+            elif 'reaction' in atoms.info:
+                structure = atoms.info['reaction']
+            else:
                 use_filenames = True
                 break
-            adsorbate = atoms.info['structure']
-            if adsorbate not in adsorbate_list:
-                adsorbate_list.append(adsorbate)
-        classify_list = []
-        for atoms in db_atoms:
-            key = atoms.info['structure']
-            classify_list.append(
-                np.argwhere(np.array(adsorbate_list) == key)[0][0]
-            )
-        
+            if structure not in structure_list:
+                structure_list.append(structure)
+        if use_filenames is False:
+            classify_list = []
+            for atoms in db_atoms:
+                if 'structure' in atoms.info:
+                    key = atoms.info['structure']
+                elif 'reaction' in atoms.info:
+                    key = atoms.info['reaction']
+                classify_list.append(
+                    np.argwhere(np.array(structure_list) == key)[0][0]
+                )
+    
     if use_filenames is True:
-        adsorbate_list = []
+        structure_list = []
         for filename in filenames:
-            adsorbate = filename.split("_")[0]
-            if adsorbate not in adsorbate_list:
-                adsorbate_list.append(adsorbate)
+            structure = filename.split("_")[0]
+            if structure not in structure_list:
+                structure_list.append(structure)
         classify_list = []
         for filename in filenames:
             key = filename.split("_")[0]
             classify_list.append(
-                np.argwhere(np.array(adsorbate_list) == key)[0][0]
+                np.argwhere(np.array(structure_list) == key)[0][0]
             )
     
     return classify_list
