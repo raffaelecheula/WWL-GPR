@@ -43,14 +43,16 @@ def cal_node_weights(graph, atoms, cutoff, inner_cutoff, inner_weight, outer_wei
     else:
         raise ValueError("check out shortest_path")
     weights_list = np.zeros(len(atoms))
-    weights_list[np.where(min_shortest_path <= inner_cutoff)] = inner_weight
-    weights_list[
-        np.where((min_shortest_path > inner_cutoff) & (min_shortest_path <= cutoff))
-    ] = outer_weight
+    #weights_list[np.where(min_shortest_path <= inner_cutoff)] = inner_weight
+    #weights_list[
+    #    np.where((min_shortest_path > inner_cutoff) & (min_shortest_path <= cutoff))
+    #] = outer_weight
+    weights_list[np.where(min_shortest_path <= cutoff)] = outer_weight
     if all_adsorbate is True:
         weights_list[
             [IsAdsAtom(atoms, index) for index in range(len(atoms))]
-        ] = inner_weight
+        ] = outer_weight
+    weights_list[np.where(min_shortest_path <= inner_cutoff)] = inner_weight
     normal_weights_list = weights_list / np.sum(weights_list)
     return normal_weights_list.reshape(-1, 1)
 

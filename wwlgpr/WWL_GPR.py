@@ -356,7 +356,7 @@ class BayOptCv(GraphBase):
         print("loss:", -log_likelihood)
         return -log_likelihood
 
-    def BayOpt(self, opt_dimensions, default_para, fix_hypers, checkpoint_saver=None):
+    def BayOpt(self, opt_dimensions, default_para, fix_hypers, checkpoint_saver=None, n_calls=3):
         """Bayesian optimization implemented with skopt
 
         Args:
@@ -394,7 +394,7 @@ class BayOptCv(GraphBase):
                     preprocess_node_attributes=preprocess_node_attributes,
                 ),
                 dimensions=dimensions,
-                n_calls=3,
+                n_calls=n_calls,
                 n_random_starts=1,
                 acq_func="EI",
                 x0=default_para,
