@@ -27,7 +27,9 @@ def multiprocessing_WD(graph_pair_indexs, label_sequences, node_weights):
     return return_list
 
 
-def cal_node_weights(graph, atoms, cutoff, inner_cutoff, inner_weight, outer_weight, all_adsorbate=True):
+def cal_node_weights(
+    graph, atoms, cutoff, inner_cutoff, inner_weight, outer_weight, all_adsorbate=True,
+):
     bonding_indexs, ads_bond_indexs = ActiveSiteIndex(graph, atoms)
     total_bonding_index = list(set(bonding_indexs)) + ads_bond_indexs
     assert inner_cutoff <= cutoff
@@ -114,11 +116,15 @@ def HstackAttribute(attributes1, attributes2):
     return hstack_attributes
 
 
-def fill_nan(feature_matrix):
-    # return SimpleImputer(missing_values=np.nan,strategy='mean').fit_transform(feature_matrix)
-    return SimpleImputer(
-        missing_values=np.nan, strategy="constant", fill_value=0.0
-    ).fit_transform(feature_matrix)
+def fill_nan(feature_matrix, strategy="constant"):
+    if strategy == "mean":
+        return SimpleImputer(
+            missing_values=np.nan, strategy='mean'
+        ).fit_transform(feature_matrix)
+    elif strategy == "constant":
+        return SimpleImputer(
+            missing_values=np.nan, strategy="constant", fill_value=0.0
+        ).fit_transform(feature_matrix)
 
 
 def OrigianAttribute(node_attributes):

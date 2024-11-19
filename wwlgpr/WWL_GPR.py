@@ -42,15 +42,16 @@ class GraphBase:
 
         """Initialize Bayesian optimization
         Args:
-            db_graphs       ([type])          : Initial graph representations of database
-            db_atoms        ([type])          : ASE atoms object for initial guess
-            node_attributes ([type])          : Node attributes
-            y               ([type])          : Target properties
-            drop_list       ([type], optional): Features to drop. Defaults to None.
-            num_iter        (int, optional)   : Number of WL iterations. Defaults to 1.
-            pre_data_type   (str, optional)   : Data preprocessing. Defaults to "Standardize".
-            filenames       ([type], optional): Name of structures. Defaults to None.
-            num_cpus        (int, optional)   : Number of cpus. Defaults to 1.
+            db_graphs ([type]): Initial graph representations of database.
+            db_atoms ([type]): ASE atoms object for initial guess.
+            node_attributes ([type]): Node attributes.
+            y ([type]): Target properties.
+            drop_list ([type], optional): Features to drop. Defaults to None.
+            num_iter (int, optional): Number of WL iterations. Defaults to 1.
+            pre_data_type (str, optional): Data preprocessing. Defaults to 
+                                           "Standardize".
+            filenames ([type], optional): Name of structures. Defaults to None.
+            num_cpus (int, optional): Number of cpus. Defaults to 1.
         """
 
         self.db_graphs = np.asarray(db_graphs)
@@ -70,10 +71,10 @@ class GraphBase:
         """calculate covariance matrix
 
         Args:
-            db_graphs            ([type]): [description]
-            db_atoms             ([type]): [description]
+            db_graphs ([type]): [description]
+            db_atoms ([type]): [description]
             post_node_attributes ([type]): [description]
-            gpr_hypers_dict      ([type]): [description]
+            gpr_hypers_dict ([type]): [description]
 
         Returns:
             [type]: covariance matirx (n * n)
@@ -112,7 +113,7 @@ class GraphBase:
 
 class BayOptCv(GraphBase):
 
-    """Runing Bayesian optimization
+    """Runing Bayesian optimization.
     """
 
     # default dict will be optimized during Bayesian optimization
@@ -197,17 +198,12 @@ class BayOptCv(GraphBase):
             )
 
             indexlist = np.cumsum(
-                list(
-                    map(
-                        lambda node_attribute: len(node_attribute),
-                        train_node_attributes,
-                    )
-                )
-                + list(
-                    map(
-                        lambda node_attribute: len(node_attribute), test_node_attributes
-                    )
-                )
+                list(map(
+                    lambda node_attribute: len(node_attribute), train_node_attributes,
+                ))
+                + list(map(
+                    lambda node_attribute: len(node_attribute), test_node_attributes,
+                ))
             )
             preprocess_node_attributes = CumsumAttributes(
                 pre_conc_attributes, indexlist
@@ -220,10 +216,10 @@ class BayOptCv(GraphBase):
     ):
         """[summary]
         Args:
-            test_graphs          ([type]): test graphs
-            test_atoms           ([type]): test atoms object
-            test_node_attributes ([type]): test node attributes
-            gpr_hypers_dict      ([type]): hyperparameters dict
+            test_graphs ([type]): test graphs.
+            test_atoms ([type]): test atoms object.
+            test_node_attributes ([type]): test node attributes.
+            gpr_hypers_dict ([type]): hyperparameters dict.
 
         Returns:
         conc_db_graphs: concatenated graph representations (training + test)
@@ -250,15 +246,15 @@ class BayOptCv(GraphBase):
         """Prediction
 
         Args:
-            test_graphs          ([type]): test graphs
-            test_atoms           ([type]): test atoms object
-            test_node_attributes ([type]): test node attributes
-            test_target          ([type]): target property
-            opt_hypers           ([type]): optimized hyperparameters
+            test_graphs ([type]): test graphs.
+            test_atoms ([type]): test atoms object.
+            test_node_attributes ([type]): test node attributes.
+            test_target ([type]): target property.
+            opt_hypers ([type]): optimized hyperparameters.
 
         Returns:
-            RMSE [type]: root mean squared error (RMSE) 
-            mu         : predictions
+            RMSE [type]: root mean squared error (RMSE).
+            mu: predictions.
         """
         self.train = True
         BayOptCv.default_gpr_hyper.update(opt_hypers)
@@ -298,13 +294,13 @@ class BayOptCv(GraphBase):
            negative log marginal likelihood
 
         Args:
-            hyperpars                  (list) : values of hyperparameters
-            name_hypers                (list) : name of hyperparameters to optimize
-            fix_hypers                 (dict) : fixed hyperparameters
-            preprocess_node_attributes (array): node attributes after preprocessing
+            hyperpars (list) : values of hyperparameters.
+            name_hypers (list) : name of hyperparameters to optimize.
+            fix_hypers (dict) : fixed hyperparameters.
+            preprocess_node_attributes (array): node attributes after preprocessing.
 
         Returns:
-            [scalar]: negative log marginal likelihood
+            [scalar]: negative log marginal likelihood.
         """
 
         self._update_default_hypers(hyperpars, name_hypers, fix_hypers)
@@ -356,13 +352,20 @@ class BayOptCv(GraphBase):
         print("loss:", -log_likelihood)
         return -log_likelihood
 
-    def BayOpt(self, opt_dimensions, default_para, fix_hypers, checkpoint_saver=None, n_calls=3):
+    def BayOpt(
+        self,
+        opt_dimensions,
+        default_para,
+        fix_hypers,
+        checkpoint_saver=None,
+        n_calls=3,
+    ):
         """Bayesian optimization implemented with skopt
 
         Args:
-            opt_dimensions ([type]): dimensions object of skopt to optimize
-            default_para ([type]): user defined trials
-            fix_hypers ([type]): fixed hyperparameters
+            opt_dimensions ([type]): dimensions object of skopt to optimize.
+            default_para ([type]): user defined trials.
+            fix_hypers ([type]): fixed hyperparameters.
             checkpoint_saver ([type], optional): [description]. Defaults to None.
 
         Returns:
@@ -396,7 +399,7 @@ class BayOptCv(GraphBase):
                 dimensions=dimensions,
                 n_calls=n_calls,
                 n_random_starts=1,
-                acq_func="EI",
+                acq_func="gp_hedge", # TODO: check which is better: gp_hedge or EI
                 x0=default_para,
                 xi=0.01,
                 # callback        = [checkpoint_saver],
@@ -411,7 +414,7 @@ class BayOptCv(GraphBase):
 
 class ContinuousWeisfeilerLehman(TransformerMixin):
     """
-    Class that implements the continuous Weisfeiler-Lehman propagation scheme
+    Class that implements the continuous Weisfeiler-Lehman propagation scheme.
     """
 
     def __init__(self):
@@ -563,11 +566,13 @@ def R_conv_attributes(
     enforce_continuous=False,
 ):
     """
-    Pairwise computation of the Wasserstein distance between embeddings of the graphs in X.
+    Pairwise computation of the Wasserstein distance between embeddings of the
+    graphs in X.
     args:
-        X (List[ig.graphs]): List of graphs
-        node_features (array): Array containing the node features for continuous attributed graphs
-        num_iterations (int): Number of iterations for the propagation scheme
+        X (List[ig.graphs]): List of graphs.
+        node_features (array): Array containing the node features for continuous
+                               attributed graphs.
+        num_iterations (int): Number of iterations for the propagation scheme.
     """
     # First check if the graphs are continuous vs categorical
     categorical = True
@@ -581,7 +586,8 @@ def R_conv_attributes(
         for g in X:
             if not "label" in g.vs.attribute_names():
                 print(
-                    "No label attributed to graphs, use degree instead and use CONTINUOUS propagation scheme."
+                    "No label attributed to graphs, use degree instead and " +
+                    "use CONTINUOUS propagation scheme."
                 )
                 categorical = False
                 break
