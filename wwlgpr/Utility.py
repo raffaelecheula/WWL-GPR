@@ -16,7 +16,7 @@ def multiprocessing_WD(graph_pair_indexs, label_sequences, node_weights):
         label2 = graph_pair_index[1]
         weights_1 = node_weights[label1]
         weights_2 = node_weights[label2 + label1]
-        # remove node attributes when its weight equals to zero
+        # Remove node attributes when its weight equals to zero.
         filter_ls_1 = label_sequences[label1][np.where(weights_1.flatten() != 0)]
         filter_ls_2 = label_sequences[label2 + label1][
             np.where(weights_2.flatten() != 0)
@@ -60,8 +60,8 @@ def cal_node_weights(
 
 
 def IsAdsAtom(atoms, index):
-    if 'ads_indices' in atoms.info:
-        return index in atoms.info['ads_indices']
+    if 'indices_ads' in atoms.info:
+        return index in atoms.info['indices_ads']
     else:
         return atoms[index].number < 18
 
@@ -170,7 +170,7 @@ def SplitTrainTest(filenames, species):
     return ads_index_list
 
 
-def ClassifySpecies(filenames, db_atoms=None):
+def ClassifySpecies(filenames, db_atoms=None, groups_key="structure"):
     
     if db_atoms is None:
         use_filenames = True
@@ -178,10 +178,8 @@ def ClassifySpecies(filenames, db_atoms=None):
         use_filenames = False
         structure_list = []
         for atoms in db_atoms:
-            if 'structure' in atoms.info:
-                structure = atoms.info['structure']
-            elif 'reaction' in atoms.info:
-                structure = atoms.info['reaction']
+            if groups_key in atoms.info:
+                structure = atoms.info[groups_key]
             else:
                 use_filenames = True
                 break
@@ -190,10 +188,8 @@ def ClassifySpecies(filenames, db_atoms=None):
         if use_filenames is False:
             classify_list = []
             for atoms in db_atoms:
-                if 'structure' in atoms.info:
-                    key = atoms.info['structure']
-                elif 'reaction' in atoms.info:
-                    key = atoms.info['reaction']
+                if groups_key in atoms.info:
+                    key = atoms.info[groups_key]
                 classify_list.append(
                     np.argwhere(np.array(structure_list) == key)[0][0]
                 )
@@ -219,7 +215,7 @@ def writetofolder(name):
     if not os.path.exists(_path):
         os.makedirs(_path)
     with open(name, "a") as infile:
-        infile.write("sample, real_y, predicted_y")
+        infile.write("name, y_true, y_pred")
         infile.write("\n")
 
 

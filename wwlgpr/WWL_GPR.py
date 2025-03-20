@@ -27,6 +27,10 @@ from .Utility import (
 
 
 class GraphBase:
+    """
+    Base class for graph-based operations.
+    """
+    
     def __init__(
         self,
         db_graphs,
@@ -40,18 +44,19 @@ class GraphBase:
         num_cpus=1,
     ):
 
-        """Initialize Bayesian optimization
+        """
+        Initialize the graph base with data, configurations, and processing parameters.
+        
         Args:
-            db_graphs ([type]): Initial graph representations of database.
-            db_atoms ([type]): ASE atoms object for initial guess.
-            node_attributes ([type]): Node attributes.
-            y ([type]): Target properties.
-            drop_list ([type], optional): Features to drop. Defaults to None.
-            num_iter (int, optional): Number of WL iterations. Defaults to 1.
-            pre_data_type (str, optional): Data preprocessing. Defaults to 
-                                           "Standardize".
-            filenames ([type], optional): Name of structures. Defaults to None.
-            num_cpus (int, optional): Number of cpus. Defaults to 1.
+            db_graphs: Initial graph representations of database.
+            db_atoms: ASE atoms object for initial guess.
+            node_attributes: Node attributes.
+            y: Target properties.
+            drop_list: Features to drop. Defaults to None.
+            num_iter: Number of WL iterations. Defaults to 1.
+            pre_data_type: Data preprocessing. Defaults to "Standardize".
+            filenames: Name of structures. Defaults to None.
+            num_cpus: Number of cpus. Defaults to 1.
         """
 
         self.db_graphs = np.asarray(db_graphs)
@@ -67,17 +72,23 @@ class GraphBase:
         GraphBase.num_cpus = num_cpus
 
     @staticmethod
-    def gpr_kernel_matrix(db_graphs, db_atoms, post_node_attributes, gpr_hypers_dict):
-        """calculate covariance matrix
+    def gpr_kernel_matrix(
+        db_graphs,
+        db_atoms,
+        post_node_attributes,
+        gpr_hypers_dict,
+    ):
+        """
+        Calculate covariance matrix based on graphs and hyperparameters.
 
         Args:
-            db_graphs ([type]): [description]
-            db_atoms ([type]): [description]
-            post_node_attributes ([type]): [description]
-            gpr_hypers_dict ([type]): [description]
+            db_graphs: Initial graph representations of database.
+            db_atoms: ASE atoms object for initial guess.
+            post_node_attributes: Node features.
+            gpr_hypers_dict: Dictionary with hyperparameters.
 
         Returns:
-            [type]: covariance matirx (n * n)
+            Covariance matrix (NxN).
         """
         n = len(db_graphs)
         res_node_weight = np.zeros(n, dtype=object)
@@ -90,8 +101,8 @@ class GraphBase:
                 gpr_hypers_dict["inner_weight"],
                 gpr_hypers_dict["outer_weight"],
             )
-        post_node_attributes = ray.put(post_node_attributes)  # node features
-        node_weights = ray.put(res_node_weight)  # node weights
+        post_node_attributes = ray.put(post_node_attributes) # Node features.
+        node_weights = ray.put(res_node_weight) # Node weights.
         M = np.zeros((n, n))
         triu = np.triu_indices(n)
         graph_pair_index = np.asarray([[i, j] for i in range(n) for j in range(n-i)])
@@ -112,28 +123,33 @@ class GraphBase:
 
 
 class BayOptCv(GraphBase):
-
-    """Runing Bayesian optimization.
+    """
+    Class for Bayesian Optimization with cross-validation.
     """
 
-    # default dict will be optimized during Bayesian optimization
+    # It will be optimized during Bayesian optimization.
     default_gpr_hyper = {
-        "cutoff": None,
-        "inner_cutoff": None,
-        "inner_weight": None,
-        "outer_weight": None,
-        "gpr_reg": 0.1,  # regularization (noise) level
-        "gpr_len": 1,  # length scale
-        "gpr_sigma": 1,  # vertical scale
-        "edge_s_s": None,
-        "edge_s_a": None,
-        "edge_a_a": None,
+        "cutoff": 2,
+        "inner_cutoff": 1,
+        "inner_weight": 0.60,
+        "outer_weight": 0.05,
+        "gpr_reg": 0.008,
+        "gpr_len": 11.5,
+        "gpr_sigma": 1,
+        "edge_s_s": 0,
+        "edge_s_a": 1,
+        "edge_a_a": 0.7,
     }
 
     def __init__(
-        self, classifyspecies=None, *args, **kwgs,
+        self,
+        classifyspecies=None,
+        *args,
+        **kwgs,
     ):
-
+        """
+        Initialize with optional species classification.
+        """
         super().__init__(*args, **kwgs)
 
         self.classifyspecies = classifyspecies
@@ -146,15 +162,28 @@ class BayOptCv(GraphBase):
         else:
             raise TypeError("Unknown preprocessing type")
 
-    def _update_default_hypers(self, hyperpars, name_hypers, fix_hypers):
+    def _update_default_hypers(
+        self,
+        hyperpars,
+        name_hypers,
+        fix_hypers,
+    ):
+        """
+        Update hyperparameters with the provided values.
+        """
         input_hyper_dict = dict(zip(name_hypers, hyperpars))
         BayOptCv.default_gpr_hyper.update(fix_hypers)
         BayOptCv.default_gpr_hyper.update(input_hyper_dict)
 
     def Preprocessing_NodeAttr(
-        self, drop_list, train_node_attributes, test_node_attributes=None
+        self,
+        drop_list,
+        train_node_attributes,
+        test_node_attributes=None,
     ):
-
+        """
+        Preprocess node attributes for training and testing datasets.
+        """
         if self.train == False:
 
             if drop_list is not None:
@@ -164,14 +193,9 @@ class BayOptCv(GraphBase):
             self.data_processor.fit(train_conc_attributes)
             pre_conc_attributes = self.data_processor.transform(train_conc_attributes)
 
-            indexlist = np.cumsum(
-                list(
-                    map(
-                        lambda node_attribute: len(node_attribute),
-                        train_node_attributes,
-                    )
-                )
-            )
+            indexlist = np.cumsum(list(map(
+                lambda node_attribute: len(node_attribute), train_node_attributes,
+            )))
             preprocess_node_attributes = CumsumAttributes(
                 pre_conc_attributes, indexlist
             )
@@ -185,7 +209,7 @@ class BayOptCv(GraphBase):
             train_conc_attributes = fill_nan(ConcAttributes(train_node_attributes))
             test_conc_attributes = fill_nan(ConcAttributes(test_node_attributes))
 
-            # fit model on training, transform to training and test individually
+            # Fit model on training, transform to training and test individually.
             self.data_processor.fit(train_conc_attributes)
             train_pre_conc_attributes = self.data_processor.transform(
                 train_conc_attributes
@@ -212,18 +236,24 @@ class BayOptCv(GraphBase):
         return preprocess_node_attributes
 
     def _Predict_prepare(
-        self, test_graphs, test_atoms, test_node_attributes, gpr_hypers_dict
+        self,
+        test_graphs,
+        test_atoms,
+        test_node_attributes,
+        gpr_hypers_dict,
     ):
-        """[summary]
+        """
+        Prepare data for prediction.
+       
         Args:
-            test_graphs ([type]): test graphs.
-            test_atoms ([type]): test atoms object.
-            test_node_attributes ([type]): test node attributes.
-            gpr_hypers_dict ([type]): hyperparameters dict.
+            test_graphs: Graphs of test data.
+            test_atoms: ASE atoms of test data.
+            test_node_attributes: Node attributes of test data.
+            gpr_hypers_dict: Hyperparameters dictionary.
 
         Returns:
-        conc_db_graphs: concatenated graph representations (training + test)
-        conc_db_atoms : concatenated atoms object (training + test)
+        Concatenated graph representations (training + test).
+        Concatenated atoms object (training + test).
         """
         assert len(test_node_attributes) > 1
         conc_db_graphs = np.append(self.db_graphs, test_graphs)
@@ -241,20 +271,26 @@ class BayOptCv(GraphBase):
         return conc_db_graphs, conc_db_atoms
 
     def Predict(
-        self, test_graphs, test_atoms, test_node_attributes, test_target, opt_hypers
+        self,
+        test_graphs,
+        test_atoms,
+        test_node_attributes,
+        test_target,
+        opt_hypers,
     ):
-        """Prediction
+        """
+        Perform prediction on the test data.
 
         Args:
-            test_graphs ([type]): test graphs.
-            test_atoms ([type]): test atoms object.
-            test_node_attributes ([type]): test node attributes.
-            test_target ([type]): target property.
-            opt_hypers ([type]): optimized hyperparameters.
+            test_graphs: Graphs of test data.
+            test_atoms: ASE atoms of test data.
+            test_node_attributes: Node attributes of test data.
+            test_target: Target property of test data.
+            opt_hypers: Optimized hyperparameters.
 
         Returns:
-            RMSE [type]: root mean squared error (RMSE).
-            mu: predictions.
+            Root mean squared error (RMSE).
+            Predictions.
         """
         self.train = True
         BayOptCv.default_gpr_hyper.update(opt_hypers)
@@ -278,8 +314,8 @@ class BayOptCv(GraphBase):
             + [0] * len(test_target),
         )
         conc_kernel_matrix = conc_kernel_matrix + total_diag
-        train_matrix = conc_kernel_matrix[:len(self.y), :len(self.y)] + 1e-8 * np.eye(
-            len(self.y)
+        train_matrix = (
+            conc_kernel_matrix[:len(self.y), :len(self.y)] + 1e-8*np.eye(len(self.y))
         )
         test_matrix = conc_kernel_matrix[len(self.y):, :len(self.y)]
         Kfy = conc_kernel_matrix[:len(self.y), len(self.y):]
@@ -289,18 +325,24 @@ class BayOptCv(GraphBase):
         
         return test_RMSE, mu
 
-    def _LossFunc(self, hyperpars, name_hypers, fix_hypers, preprocess_node_attributes):
-        """calculate loss function
-           negative log marginal likelihood
+    def _LossFunc(
+        self,
+        hyperpars,
+        name_hypers,
+        fix_hypers,
+        preprocess_node_attributes,
+    ):
+        """
+        Calculate the loss function (negative log marginal likelihood).
 
         Args:
-            hyperpars (list) : values of hyperparameters.
-            name_hypers (list) : name of hyperparameters to optimize.
-            fix_hypers (dict) : fixed hyperparameters.
-            preprocess_node_attributes (array): node attributes after preprocessing.
+            hyperpars: Values of hyperparameters.
+            name_hypers: Name of hyperparameters to optimize.
+            fix_hypers: Fixed hyperparameters.
+            preprocess_node_attributes: Node attributes after preprocessing.
 
         Returns:
-            [scalar]: negative log marginal likelihood.
+            Negative log marginal likelihood.
         """
 
         self._update_default_hypers(hyperpars, name_hypers, fix_hypers)
@@ -336,11 +378,8 @@ class BayOptCv(GraphBase):
             gpr_hypers_dict=self.default_gpr_hyper,
         )
 
-        assert self.train == False  # for testing.
-        if self.train == False:
-            pre_kernel = pre_kernel + self.default_gpr_hyper["gpr_reg"] * np.eye(
-                len(self.y)
-            )
+        assert self.train == False # For testing.
+        pre_kernel = pre_kernel+self.default_gpr_hyper["gpr_reg"]*np.eye(len(self.y))
         Kxx = pre_kernel
         train_y = self.y[:, np.newaxis]
         L = cholesky(Kxx, lower=True)
@@ -348,7 +387,7 @@ class BayOptCv(GraphBase):
         log_likelihood_dims = -0.5 * np.einsum("ik,ik->k", train_y, alpha)
         log_likelihood_dims -= np.log(np.diag(L)).sum()
         log_likelihood_dims -= Kxx.shape[0] / 2 * np.log(2 * np.pi)
-        log_likelihood = log_likelihood_dims.sum(-1)  # sum over dimensions
+        log_likelihood = log_likelihood_dims.sum(-1) # Sum over dimensions.
         print("loss:", -log_likelihood)
         return -log_likelihood
 
@@ -360,16 +399,17 @@ class BayOptCv(GraphBase):
         checkpoint_saver=None,
         n_calls=3,
     ):
-        """Bayesian optimization implemented with skopt
+        """
+        Perform Bayesian Optimization using `skopt`.
 
         Args:
-            opt_dimensions ([type]): dimensions object of skopt to optimize.
-            default_para ([type]): user defined trials.
-            fix_hypers ([type]): fixed hyperparameters.
-            checkpoint_saver ([type], optional): [description]. Defaults to None.
+            opt_dimensions: Dimensions object of skopt to optimize.
+            default_para: User defined parameters.
+            fix_hypers: Fixed hyperparameters.
+            checkpoint_saver: [description]. Defaults to None.
 
         Returns:
-            [type]: log_likelihood for all tested hyperparameters
+            Log likelihood for all tested hyperparameters
         """
 
         name_hypers = list(opt_dimensions.keys())
@@ -399,13 +439,12 @@ class BayOptCv(GraphBase):
                 dimensions=dimensions,
                 n_calls=n_calls,
                 n_random_starts=1,
-                acq_func="gp_hedge", # TODO: check which is better: gp_hedge or EI
+                acq_func="EI",
                 x0=default_para,
                 xi=0.01,
-                # callback        = [checkpoint_saver],
+                # callback = [checkpoint_saver],
                 random_state=0,
             )
-
             # plot_convergence(res)
             # plt.savefig('convergence.png'); plt.close()
             return res
@@ -418,18 +457,18 @@ class ContinuousWeisfeilerLehman(TransformerMixin):
     """
 
     def __init__(self):
-        self._results = defaultdict(dict)
+        self._results = {} # defaultdict(dict)
         self._label_sequences = []
 
     def _preprocess_graphs(self, X: List[ig.Graph]):
         """
-        Load graphs from gml files.
+        Preprocess graphs and extract node features and adjacency matrices.
         """
-        # initialize
+        # Initialize.
         node_features = []
         adj_mat = []
         n_nodes = []
-        # Iterate across graphs and load initial node features
+        # Iterate across graphs and load initial node features.
         for graph in X:
             if not "label" in graph.vs.attribute_names():
                 graph.vs["label"] = list(map(str, [l for l in graph.vs.degree()]))
@@ -453,7 +492,7 @@ class ContinuousWeisfeilerLehman(TransformerMixin):
 
     def _create_adj_avg(self, adj_cur):
         """
-        create adjacency
+        Create average adjacency matrix.
         """
         deg = np.sum(adj_cur, axis=1)
         deg = np.asarray(deg).reshape(-1)
@@ -467,19 +506,19 @@ class ContinuousWeisfeilerLehman(TransformerMixin):
 
     def _create_adj_weighted(self, graph_i, db_atom_i, gpr_hypers_dict):
         """
-        create weighted adjacency
+        Create weighted adjacency matrix.
         """
         edge_list = graph_i.get_edgelist()
         weights = np.zeros((len(db_atom_i), len(db_atom_i)))
-        if 'ads_indices' in db_atom_i.info:
-            ads_indices = db_atom_i.info['ads_indices']
+        if 'indices_ads' in db_atom_i.info:
+            indices_ads = db_atom_i.info['indices_ads']
             for edge_i in edge_list:
-                matches = [ii for ii in edge_i if ii in ads_indices]
-                if len(matches) == 2:
+                matches = [ii for ii in edge_i if ii in indices_ads]
+                if len(matches) == 0:
                     weights[edge_i] = gpr_hypers_dict["edge_s_s"]
                 elif len(matches) == 1:
                     weights[edge_i] = gpr_hypers_dict["edge_s_a"]
-                elif len(matches) == 0:
+                elif len(matches) == 2:
                     weights[edge_i] = gpr_hypers_dict["edge_a_a"]
                 else:
                     raise TypeError("Unknown type of edge")
@@ -568,13 +607,14 @@ def R_conv_attributes(
     """
     Pairwise computation of the Wasserstein distance between embeddings of the
     graphs in X.
+    
     args:
-        X (List[ig.graphs]): List of graphs.
-        node_features (array): Array containing the node features for continuous
-                               attributed graphs.
-        num_iterations (int): Number of iterations for the propagation scheme.
+        X: List of graphs.
+        node_features: Array containing the node features for continuous
+            attributed graphs.
+        num_iterations: Number of iterations for the propagation scheme.
     """
-    # First check if the graphs are continuous vs categorical
+    # First check if the graphs are continuous vs categorical.
     categorical = True
     if enforce_continuous:
         # print('Enforce continous flag is on, using CONTINUOUS propagation scheme.')
